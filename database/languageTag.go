@@ -20,7 +20,11 @@ func (db *Gorm) InsertLanguageTagsValue(value LanguageTag) {
 // GetRecommendationTagByLanguage returns an array of string ordered by usage based on the language
 func (db *Gorm) GetRecommendationTagByLanguage(language string) []string {
 	var tags []LanguageTag
-	db.Conn.Select("tag_name").Where("language = ?", language).Group("tag_name").Limit(10).Find(&tags)
+	if language != "" {
+		db.Conn.Select("tag_name").Where("language = ?", language).Group("tag_name").Limit(10).Find(&tags)
+	} else {
+		db.Conn.Select("tag_name").Group("tag_name").Limit(10).Find(&tags)
+	}
 	var mostUsedTags []string
 	for _, tag := range tags {
 		mostUsedTags = append(mostUsedTags, tag.TagName)
