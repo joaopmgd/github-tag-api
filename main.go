@@ -3,8 +3,8 @@ package main
 import (
 	"os"
 
-	"github.com/github-tag-api/app"
-	"github.com/github-tag-api/config"
+	"github.com/joaopmgd/github-tag-api/app"
+	"github.com/joaopmgd/github-tag-api/config"
 	_ "github.com/joho/godotenv/autoload"
 )
 

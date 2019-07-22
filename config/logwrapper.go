@@ -23,14 +23,6 @@ func NewLogger() *StandardLogger {
 	var baseLogger = logrus.New()
 	baseLogger.Out = os.Stdout
 	baseLogger.SetLevel(logrus.DebugLevel)
-
-	// Create the log file if doesn't exist. And append to it if it already exists.
-	// file, err := os.OpenFile(time.Now().Format(time.RFC3339)+".log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-	// if err == nil {
-	// 	baseLogger.Out = file
-	// } else {
-	// 	baseLogger.Info("Failed to log to file, using default stderr")
-	// }
 	Formatter := new(logrus.TextFormatter)
 	Formatter.TimestampFormat = "02-01-2006 15:04:05"
 	Formatter.FullTimestamp = true
@@ -52,6 +44,12 @@ var (
 	unableToRequest                   = Event{7, "Unable to request data : %s"}
 	restRequestTemplateCreationError  = Event{8, "Error while creating a REST template: %s"}
 	restRequestTemplateExecutionError = Event{9, "Error while executing a REST template: %s"}
+	databaseConnectionError           = Event{10, "Error while trying to connect to the PostgreSQL database: %s"}
+	couldNotParseRequestBody          = Event{11, "Could not parse request body : %s"}
+	repoNotFound                      = Event{11, "Repository with id %s was not found"}
+	repoAlreadyTagged                 = Event{12, "Repository already has the tag %s"}
+	stringToInt64Error                = Event{13, "Error while converting the string %s to int64"}
+	pageIsBiggerThanRequestValues     = Event{14, "Requested page is bigger than requested value limit %s, offset %s"}
 )
 
 // InitFunction is a standard init function message
@@ -64,9 +62,13 @@ func (l *StandardLogger) EnvVariablesData() {
 	envVarsData := logrus.Fields{
 		"GITHUB_PROPERTIES_ENDPOINT": os.Getenv("GITHUB_PROPERTIES_ENDPOINT"),
 		"GITHUB_USER_STARRED":        os.Getenv("GITHUB_USER_STARRED"),
+		"GITHUB_HEALTH_STATUS":       os.Getenv("GITHUB_HEALTH_STATUS"),
 		"HOST":                       os.Getenv("HOST"),
 	}
-	if os.Getenv("GITHUB_PROPERTIES_ENDPOINT") == "" || os.Getenv("GITHUB_USER_STARRED") == "" || os.Getenv("HOST") == "" {
+	if os.Getenv("GITHUB_PROPERTIES_ENDPOINT") == "" ||
+		os.Getenv("GITHUB_USER_STARRED") == "" ||
+		os.Getenv("GITHUB_HEALTH_STATUS") == "" ||
+		os.Getenv("HOST") == "" {
 		l.WithFields(envVarsData).Error("Environment variables must be set.")
 		os.Exit(0)
 	}
@@ -111,4 +113,34 @@ func (l *StandardLogger) CreatingRestTemplateError(err string) {
 // ExecutinRestTemplateError logs the erro for creating a reat template
 func (l *StandardLogger) ExecutinRestTemplateError(err string) {
 	l.Errorf(restRequestTemplateExecutionError.message, err)
+}
+
+// DatabaseConnectionError details the error while connectiong to the database
+func (l *StandardLogger) DatabaseConnectionError(reason string) {
+	l.Errorf(databaseConnectionError.message, reason)
+}
+
+// CouldNotParseRequestBody logs if the body request could no be parsed
+func (l *StandardLogger) CouldNotParseRequestBody(err string) {
+	l.Errorf(couldNotParseRequestBody.message, err)
+}
+
+// RepoNotFound logs if the repo is not found
+func (l *StandardLogger) RepoNotFound(id string) {
+	l.Errorf(repoNotFound.message, id)
+}
+
+// RepoAlreadyTagged logs if the repo already has the tag
+func (l *StandardLogger) RepoAlreadyTagged(tag string) {
+	l.Errorf(repoAlreadyTagged.message, tag)
+}
+
+// StringToInt64Error details the error while trying to convert a string to a int number
+func (l *StandardLogger) StringToInt64Error(number string) {
+	l.Errorf(stringToInt64Error.message, number)
+}
+
+// PageIsBiggerThanRequestValues details a warning while the requested page is is bigger than the requested value
+func (l *StandardLogger) PageIsBiggerThanRequestValues(limit, offset string) {
+	l.Errorf(pageIsBiggerThanRequestValues.message, limit, offset)
 }
