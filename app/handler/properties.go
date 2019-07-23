@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -32,32 +31,6 @@ func GetAllStarredRepos(config *config.Config, w http.ResponseWriter, r *http.Re
 	// Recover data from database
 	tags := config.DB.GetAllRepoTagsMap(vars["user"])
 	respondJSON(w, http.StatusOK, paginate(config, r, createMessageStarredReposSelectedTag(userStarredRepos, tags, r.FormValue("tag"))))
-}
-
-func createMessageStarredReposSelectedTag(repos []model.StarredRepoRequest, tags map[int64][]string, selectedTag string) []model.StarredRepoTags {
-	starredRepos := []model.StarredRepoTags{}
-	for _, repo := range repos {
-		if selectedTag == "" || repoHasTag(tags[repo.ID], selectedTag) {
-			starredRepos = append(starredRepos, model.StarredRepoTags{
-				ID:          repo.ID,
-				Name:        repo.Name,
-				Description: repo.Description,
-				URL:         repo.URL,
-				Language:    repo.Language,
-				Tags:        tags[repo.ID],
-			})
-		}
-	}
-	return starredRepos
-}
-
-func repoHasTag(tags []string, selectedTag string) bool {
-	for _, tag := range tags {
-		if strings.Contains(tag, selectedTag) {
-			return true
-		}
-	}
-	return false
 }
 
 // getUserStarredReposOr404 gets all user starred repos, or respond the 404 error otherwise
@@ -169,46 +142,6 @@ func GetARepoRecommendation(config *config.Config, w http.ResponseWriter, r *htt
 	// Recover data from database
 	tags := config.DB.GetRecommendationTagByLanguage(repo.Language)
 	respondJSON(w, http.StatusOK, model.RecommendedTags{Recommended: addLanguage(repo.Language, tags)})
-}
-
-func addLanguage(language string, tags []string) []string {
-	for _, tag := range tags {
-		if tag == language {
-			return tags
-		}
-	}
-	return append(tags, language)
-}
-
-// Paginate just picksup a slice from the Response, showing just the page Requested
-func paginate(config *config.Config, r *http.Request, starredRepos []model.StarredRepoTags) model.StarredRepoTagsResponse {
-	offset, err := strconv.Atoi(r.FormValue("offset"))
-	if err != nil {
-		offset = 0
-	}
-	limit, err := strconv.Atoi(r.FormValue("limit"))
-	if err != nil {
-		limit = 10
-	}
-	if offset*limit > len(starredRepos)-1 {
-		config.Log.PageIsBiggerThanRequestValues(strconv.Itoa(limit), strconv.Itoa(offset))
-		return model.StarredRepoTagsResponse{
-			StarredRepos:         []model.StarredRepoTags{},
-			PageNumber:           offset,
-			PageSize:             limit,
-			PropertiesTotalCount: len(starredRepos)}
-	}
-	if offset+limit > len(starredRepos) {
-		limit = len(starredRepos)
-	}
-	selectedRepos := (starredRepos)[offset*limit : (offset*limit)+limit]
-	starredReposResponseResponse := model.StarredRepoTagsResponse{
-		StarredRepos:         selectedRepos,
-		PageNumber:           offset,
-		PageSize:             limit,
-		PropertiesTotalCount: len(starredRepos),
-	}
-	return starredReposResponseResponse
 }
 
 // HealthStatus checks github and database connectivity
