@@ -29,13 +29,9 @@ make docker-run
 
 ## Requests 
 
-### GET repos/{username}/starred
+### GET repos/{username}/starred?tag={tag}
 
-- To recover all starred repos by an user, the GET request will only need an URL parameter for the username
-
-### GET /repos/{user}?tag={tag}
-
-- To recover all starred repos by an user, using a selected tag, the GET request will need an URL parameter for the username and for the tag that is being searched in the query param
+- To recover all starred repos by an user, the GET request will only need an URL parameter for the username. If a tag is passed in the query params the search will return starred repos that were tagged with that search information
 
 ### GET /repos/{user}/starred/{repo}/recommendation
 
@@ -43,7 +39,15 @@ make docker-run
 
 ### POST /repos/{user}/starred/{repo}
 
-- To recover all starred repos by an user, the GET request will need and URL parameter for the username and the repo id
+- To add a new tag for a repo
+- The body for the post request should be a JSON as:
+{
+	"tag": "test"
+}
+
+### DELETE /repos/{user}/starred/{repo}
+
+- To add a delete tag for a repo
 - The body for the post request should be a JSON as:
 {
 	"tag": "test"
@@ -59,7 +63,9 @@ Pagination is implemented, the default Response has offset=0 and limit=10 for st
 
 ## Running the tests
 
-To run the tests just execute:
+The file main_test.go has the integration tests, which is required a connection to the db and Github
+
+To run the tests locally just execute:
 
 ```
 go test

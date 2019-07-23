@@ -18,6 +18,11 @@ func (db *Gorm) InsertRepoTagsValue(value RepoTag) {
 	db.Conn.Create(&value)
 }
 
+// DeleteRepoTagsValue deletes value from database
+func (db *Gorm) DeleteRepoTagsValue(value RepoTag) {
+	db.Conn.Where("user_id = ? AND repo_id = ? AND tag_name = ?", value.UserID, value.RepoID, value.TagName).Delete(RepoTag{})
+}
+
 // GetAllRepoTagsMap recovers all repo tags for and user id
 func (db *Gorm) GetAllRepoTagsMap(userID string) map[int64][]string {
 	var repoTags []RepoTag

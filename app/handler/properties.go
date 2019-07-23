@@ -26,27 +26,38 @@ func GetAllStarredRepos(config *config.Config, w http.ResponseWriter, r *http.Re
 	userStarredRepos, err := getUserStarredReposOr404(URL)
 	if err != nil {
 		config.Log.UnableToRequest(err.Error())
-		respondError(w, http.StatusNotFound, err.Error())
+		respondError(w, http.StatusNotFound, "User not found")
 		return
 	}
 	// Recover data from database
 	tags := config.DB.GetAllRepoTagsMap(vars["user"])
-	respondJSON(w, http.StatusOK, paginate(config, r, createMessageStarredRepos(userStarredRepos, tags)))
+	respondJSON(w, http.StatusOK, paginate(config, r, createMessageStarredReposSelectedTag(userStarredRepos, tags, r.FormValue("tag"))))
 }
 
-func createMessageStarredRepos(repos []model.StarredRepoRequest, tags map[int64][]string) []model.StarredRepoTags {
+func createMessageStarredReposSelectedTag(repos []model.StarredRepoRequest, tags map[int64][]string, selectedTag string) []model.StarredRepoTags {
 	starredRepos := []model.StarredRepoTags{}
 	for _, repo := range repos {
-		starredRepos = append(starredRepos, model.StarredRepoTags{
-			ID:          repo.ID,
-			Name:        repo.Name,
-			Description: repo.Description,
-			URL:         repo.URL,
-			Language:    repo.Language,
-			Tags:        tags[repo.ID],
-		})
+		if selectedTag == "" || repoHasTag(tags[repo.ID], selectedTag) {
+			starredRepos = append(starredRepos, model.StarredRepoTags{
+				ID:          repo.ID,
+				Name:        repo.Name,
+				Description: repo.Description,
+				URL:         repo.URL,
+				Language:    repo.Language,
+				Tags:        tags[repo.ID],
+			})
+		}
 	}
 	return starredRepos
+}
+
+func repoHasTag(tags []string, selectedTag string) bool {
+	for _, tag := range tags {
+		if strings.Contains(tag, selectedTag) {
+			return true
+		}
+	}
+	return false
 }
 
 // getUserStarredReposOr404 gets all user starred repos, or respond the 404 error otherwise
@@ -68,53 +79,6 @@ func requestData(target interface{}, URL string) error {
 	return json.NewDecoder(r.Body).Decode(target)
 }
 
-// GetTagStarredRepo return all starred repos based ona tag
-func GetTagStarredRepo(config *config.Config, w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-
-	// Validate URL
-	URL, err := config.GetStarredReposURL(vars)
-	if err != nil {
-		respondError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	userStarredRepos, err := getUserStarredReposOr404(URL)
-	if err != nil {
-		config.Log.UnableToRequest(err.Error())
-		respondError(w, http.StatusNotFound, err.Error())
-		return
-	}
-	// Recover data from database
-	tags := config.DB.GetAllRepoTagsMap(vars["user"])
-	respondJSON(w, http.StatusOK, paginate(config, r, createMessageStarredReposSelectedTag(userStarredRepos, tags, r.FormValue("tag"))))
-}
-
-func hasTag(tags []string, selectedTag string) bool {
-	for _, tag := range tags {
-		if strings.Contains(tag, selectedTag) {
-			return true
-		}
-	}
-	return false
-}
-
-func createMessageStarredReposSelectedTag(repos []model.StarredRepoRequest, tags map[int64][]string, selectedTag string) []model.StarredRepoTags {
-	starredRepos := []model.StarredRepoTags{}
-	for _, repo := range repos {
-		if hasTag(tags[repo.ID], selectedTag) {
-			starredRepos = append(starredRepos, model.StarredRepoTags{
-				ID:          repo.ID,
-				Name:        repo.Name,
-				Description: repo.Description,
-				URL:         repo.URL,
-				Language:    repo.Language,
-				Tags:        tags[repo.ID],
-			})
-		}
-	}
-	return starredRepos
-}
-
 // PostTagStarredRepo post a new tag for a repo
 func PostTagStarredRepo(config *config.Config, w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
@@ -124,7 +88,7 @@ func PostTagStarredRepo(config *config.Config, w http.ResponseWriter, r *http.Re
 	err := json.NewDecoder(r.Body).Decode(&tagData)
 	if err != nil {
 		config.Log.CouldNotParseRequestBody(err.Error())
-		respondError(w, http.StatusNotFound, err.Error())
+		respondError(w, http.StatusNotFound, "Body must have a JSON key named 'tag' and its value")
 		return
 	}
 
@@ -139,7 +103,7 @@ func PostTagStarredRepo(config *config.Config, w http.ResponseWriter, r *http.Re
 	userStarredRepos, err := getUserStarredReposOr404(URL)
 	if err != nil {
 		config.Log.UnableToRequest(err.Error())
-		respondError(w, http.StatusNotFound, err.Error())
+		respondError(w, http.StatusNotFound, "User not found")
 		return
 	}
 
@@ -186,7 +150,7 @@ func GetARepoRecommendation(config *config.Config, w http.ResponseWriter, r *htt
 	userStarredRepos, err := getUserStarredReposOr404(URL)
 	if err != nil {
 		config.Log.UnableToRequest(err.Error())
-		respondError(w, http.StatusNotFound, err.Error())
+		respondError(w, http.StatusNotFound, "User not found")
 		return
 	}
 
@@ -272,4 +236,49 @@ func getHealthStatusOr404(URL string) (model.GithubHealthStatus, error) {
 		return model.GithubHealthStatus{}, err
 	}
 	return health, nil
+}
+
+// DeleteTagStarredRepo delete a tag for some repo
+func DeleteTagStarredRepo(config *config.Config, w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+
+	// Validate body
+	var tagData model.TagRequestUpdate
+	err := json.NewDecoder(r.Body).Decode(&tagData)
+	if err != nil {
+		config.Log.CouldNotParseRequestBody(err.Error())
+		respondError(w, http.StatusNotFound, "Body must have a JSON key named 'tag' and its value")
+		return
+	}
+
+	// Validate URL
+	URL, err := config.GetStarredReposURL(vars)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// Validate request to github
+	userStarredRepos, err := getUserStarredReposOr404(URL)
+	if err != nil {
+		config.Log.UnableToRequest(err.Error())
+		respondError(w, http.StatusNotFound, "User not found")
+		return
+	}
+
+	// Validate request if id exists
+	var repo model.StarredRepoRequest
+	for _, starred := range userStarredRepos {
+		if vars["repo"] == strconv.FormatInt(starred.ID, 10) {
+			repo = starred
+		}
+	}
+	if repo.ID == 0 {
+		config.Log.RepoNotFound(vars["repo"])
+		respondError(w, http.StatusNotFound, "Repository not found "+vars["repo"])
+		return
+	}
+
+	config.DB.DeleteRepoTagsValue(database.RepoTag{UserID: vars["user"], RepoID: repo.ID, TagName: tagData.TagName})
+	respondJSON(w, http.StatusOK, model.ResponseOK{Message: "Tag Deleted"})
 }
